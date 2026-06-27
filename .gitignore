@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+build
+
+# env
+.env
+.env.local
+.env*.local
+
+# prisma / sqlite
+prisma/*.db
+prisma/*.db-journal
+*.db
+
+.DS_Store
+next-env.d.ts

@@ -1,0 +1,17 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Run {
+  id        String   @id @default(cuid())
+  mode      String // "A" | "B"
+  createdAt DateTime @default(now())
+  input     String // text (A) or target (B)
+  config    String // JSON: provider, splitPct, etc.
+  results   String // JSON blob of the computed output (score+diff for A, dossier for B)
+}
