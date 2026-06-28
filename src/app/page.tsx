@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import ModeA from "@/components/ModeA";
 import ModeB from "@/components/ModeB";
+import ModeC from "@/components/ModeC";
 import { createClient } from "@/lib/supabase/client";
 
 type ProviderInfo = { id: string; label: string };
@@ -13,7 +14,7 @@ type Health = {
 };
 
 export default function Page() {
-  const [mode, setMode] = useState<"A" | "B">("A");
+  const [mode, setMode] = useState<"A" | "B" | "C">("A");
   const [health, setHealth] = useState<Health | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -87,20 +88,26 @@ export default function Page() {
               kicker="MODE B"
               label="Model-Layer Recon"
             />
+            <ModeTab
+              active={mode === "C"}
+              onClick={() => setMode("C")}
+              kicker="MODE C"
+              label="AEO Optimizer"
+            />
           </div>
         </div>
       </header>
 
       <main className="flex-1">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 py-7">
-          {mode === "A" ? (
-            <ModeA providers={health?.configured ?? []} />
-          ) : (
+          {mode === "A" && <ModeA providers={health?.configured ?? []} />}
+          {mode === "B" && (
             <ModeB
               providers={health?.configured ?? []}
               providerCount={health?.count ?? 0}
             />
           )}
+          {mode === "C" && <ModeC providers={health?.configured ?? []} />}
         </div>
       </main>
 

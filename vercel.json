@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/aeo-check",
+      "schedule": "0 6 * * *"
+    }
+  ]
+}

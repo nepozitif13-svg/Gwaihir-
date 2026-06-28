@@ -231,7 +231,7 @@ export function Panel({
   children,
 }: {
   title: string;
-  kicker: string;
+  kicker: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
