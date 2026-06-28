@@ -9,7 +9,8 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || user.user_metadata?.is_admin !== true) {
+  // app_metadata is only writable via service_role — cannot be spoofed by the user
+  if (!user || user.app_metadata?.is_admin !== true) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 

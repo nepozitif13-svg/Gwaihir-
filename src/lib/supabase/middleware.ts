@@ -44,7 +44,8 @@ export async function updateSession(request: NextRequest) {
 
   // Admin роут — проверяем метаданные
   if (isAdminRoute && user) {
-    const isAdmin = user.user_metadata?.is_admin === true;
+    // app_metadata is only writable via service_role — cannot be spoofed by the user
+    const isAdmin = user.app_metadata?.is_admin === true;
     if (!isAdmin) {
       const url = request.nextUrl.clone();
       url.pathname = "/";
