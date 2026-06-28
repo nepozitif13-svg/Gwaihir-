@@ -3,7 +3,7 @@ import { CompleteOpts, ModelProvider, ProviderError } from "./types";
 
 export const cerebrasProvider: ModelProvider = {
   id: "cerebras",
-  label: "Cerebras (Llama)",
+  label: "Cerebras (GPT-OSS 120B)",
   isConfigured() {
     return !!process.env.CEREBRAS_API_KEY;
   },

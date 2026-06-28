@@ -93,43 +93,44 @@ export async function runRecon(
   const providerLabels: Record<string, string> = {};
   providers.forEach((p) => (providerLabels[p.id] = p.label));
 
-  // [3] FAN-OUT: every question to every provider
-  const jobs: Promise<ProviderAnswer>[] = [];
+  // [3] FAN-OUT: each provider gets its own sequential queue (1 at a time)
+  // so we never blast multiple questions to the same free-tier endpoint at once.
+  // Providers run in parallel with each other.
   let done = 0;
   const total =
-    providers.length * battery.length + // answers
-    providers.length * 2; // extraction + sentiment per provider (approx for progress)
+    providers.length * battery.length +
+    providers.length * 2;
 
-  for (const provider of providers) {
-    battery.forEach((question, questionIndex) => {
-      jobs.push(
-        limit(async () => {
-          try {
-            const answer = await withRetry(() =>
-              provider.complete({ user: question, temperature: 0, maxTokens: 700 }),
-            );
-            return { provider: provider.id, questionIndex, question, answer };
-          } catch (err) {
-            return {
-              provider: provider.id,
-              questionIndex,
-              question,
-              answer: "",
-              error: err instanceof Error ? err.message : String(err),
-            };
-          } finally {
-            done++;
-            onProgress?.(done, total);
-          }
-        }),
-      );
-    });
-  }
+  const perProviderJobs = providers.map((provider) => {
+    const provLimit = pLimit(1);
+    return battery.map((question, questionIndex) =>
+      provLimit(async () => {
+        try {
+          const answer = await withRetry(() =>
+            provider.complete({ user: question, temperature: 0, maxTokens: 700 }),
+          );
+          return { provider: provider.id, questionIndex, question, answer };
+        } catch (err) {
+          return {
+            provider: provider.id,
+            questionIndex,
+            question,
+            answer: "",
+            error: err instanceof Error ? err.message : String(err),
+          };
+        } finally {
+          done++;
+          onProgress?.(done, total);
+        }
+      }),
+    );
+  });
 
-  const answers = await Promise.all(jobs);
+  const answers = await Promise.all(perProviderJobs.flat());
 
-  // Pick an extractor: any one configured provider.
-  const extractor = providers[0];
+  // Pick extractor: first provider that actually returned answers (not rate-limited).
+  const successfulProviderIds = new Set(answers.filter((a) => a.answer && !a.error).map((a) => a.provider));
+  const extractor = providers.find((p) => successfulProviderIds.has(p.id)) ?? providers[0];
 
   // [4] EXTRACT: atomic claims per answer
   const claimJobs: Promise<RawClaim[]>[] = answers

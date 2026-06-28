@@ -5,9 +5,9 @@ export const MODELS = {
   openai: "gpt-4o",
   google: "gemini-2.0-flash",
   perplexity: "sonar",
-  groq: "llama-3.3-70b-versatile",
+  groq: "llama-3.1-8b-instant",
   openrouter: "meta-llama/llama-3.3-70b-instruct:free",
-  cerebras: "llama-3.3-70b",
+  cerebras: "gpt-oss-120b",
 } as const;
 
 export type ProviderId = keyof typeof MODELS;
