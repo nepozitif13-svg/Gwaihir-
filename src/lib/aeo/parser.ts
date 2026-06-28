@@ -33,7 +33,7 @@ const BLOCKED_IP_PATTERNS = [
   /^::$/,
 ];
 
-const MAX_BYTES = 200 * 1024;
+const MAX_BYTES = 1024 * 1024; // 1 MB — after tag-stripping we cap text at 12 K chars anyway
 const TIMEOUT_MS = 10_000;
 const MAX_REDIRECTS = 3;
 
