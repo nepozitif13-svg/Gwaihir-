@@ -18,3 +18,10 @@ next-env.d.ts
 
 # local MCP config (contains auth tokens)
 .mcp.json
+.vercel
+
+# build artifacts
+tsconfig.tsbuildinfo
+
+# local planning notes
+.planning/
