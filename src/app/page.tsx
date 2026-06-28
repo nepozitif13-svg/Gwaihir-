@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import ModeA from "@/components/ModeA";
 import ModeB from "@/components/ModeB";
+import { createClient } from "@/lib/supabase/client";
 
 type ProviderInfo = { id: string; label: string };
 type Health = {
@@ -15,12 +16,18 @@ export default function Page() {
   const [mode, setMode] = useState<"A" | "B">("A");
   const [health, setHealth] = useState<Health | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     fetch("/api/health")
       .then((r) => r.json())
       .then(setHealth)
       .catch(() => setHealthError("Could not reach /api/health."));
+
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.app_metadata?.is_admin === true) setIsAdmin(true);
+    });
   }, []);
 
   return (
@@ -41,7 +48,25 @@ export default function Page() {
                 target.
               </p>
             </div>
-            <HealthPill health={health} error={healthError} />
+            <div className="flex items-center gap-2">
+              <HealthPill health={health} error={healthError} />
+              {isAdmin && (
+                <a
+                  href="/admin"
+                  className="font-mono text-xs border border-hairline rounded px-3 py-2 text-ink-soft hover:text-ink hover:border-ink/40 transition-colors"
+                >
+                  admin
+                </a>
+              )}
+              <form action="/api/auth/signout" method="POST">
+                <button
+                  type="submit"
+                  className="font-mono text-xs border border-hairline rounded px-3 py-2 text-ink-soft hover:text-ink hover:border-ink/40 transition-colors"
+                >
+                  sign out
+                </button>
+              </form>
+            </div>
           </div>
 
           {/* Mode toggle */}
