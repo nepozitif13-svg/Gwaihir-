@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProvider, getConfiguredProviders } from "@/lib/providers";
-import {
-  scoreMemorization,
-  splitAtWordBoundary,
-  highlightSpans,
-} from "@/lib/scoring/memorization";
+import { scoreMemorization, splitAtWordBoundary, highlightSpans } from "@/lib/scoring/memorization";
 import { saveRunSafe } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +13,22 @@ const SYSTEM =
   "Output only the continuation — no preamble, no quotation marks, no commentary.";
 
 export async function POST(req: NextRequest) {
+  // Auth
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  // Rate limit
+  const rl = await checkRateLimit(user.id, "mode-a");
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: `Rate limit exceeded. Retry in ${Math.ceil(rl.retryAfterMs / 1000)}s.` },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } }
+    );
+  }
+
   let body: { text?: string; splitPct?: number; providerId?: string };
   try {
     body = await req.json();
@@ -28,24 +42,23 @@ export async function POST(req: NextRequest) {
   if (text.length < 40) {
     return NextResponse.json(
       { error: "Paste at least a couple of sentences (40+ characters) to probe." },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
   const configured = getConfiguredProviders();
   if (configured.length === 0) {
     return NextResponse.json(
-      { error: "No provider keys found. Add at least one key to .env.local and restart." },
-      { status: 400 },
+      { error: "No provider keys configured." },
+      { status: 400 }
     );
   }
 
-  const provider =
-    (body.providerId && getProvider(body.providerId)) || configured[0];
+  const provider = (body.providerId && getProvider(body.providerId)) || configured[0];
   if (!provider || !provider.isConfigured()) {
     return NextResponse.json(
       { error: `Provider "${body.providerId}" is not configured.` },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -53,48 +66,26 @@ export async function POST(req: NextRequest) {
   if (!trueSuffix.trim()) {
     return NextResponse.json(
       { error: "Split point leaves nothing to compare. Lower the prefix percentage." },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
   let modelContinuation = "";
   try {
-    modelContinuation = await provider.complete({
-      system: SYSTEM,
-      user: prefix,
-      temperature: 0,
-      maxTokens: 600,
-    });
+    modelContinuation = await provider.complete({ system: SYSTEM, user: prefix, temperature: 0, maxTokens: 600 });
   } catch (err) {
     return NextResponse.json(
-      {
-        error: `Probe failed via ${provider.label}: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      },
-      { status: 502 },
+      { error: `Probe failed via ${provider.label}: ${err instanceof Error ? err.message : String(err)}` },
+      { status: 502 }
     );
   }
 
   const score = scoreMemorization(trueSuffix, modelContinuation);
   const highlight = highlightSpans(trueSuffix, score.matchStart, score.matchEnd);
 
-  const results = {
-    provider: { id: provider.id, label: provider.label },
-    splitPct,
-    prefix,
-    trueSuffix,
-    modelContinuation,
-    score,
-    highlight,
-  };
+  const results = { provider: { id: provider.id, label: provider.label }, splitPct, prefix, trueSuffix, modelContinuation, score, highlight };
 
-  await saveRunSafe({
-    mode: "A",
-    input: text,
-    config: { providerId: provider.id, splitPct },
-    results,
-  });
+  await saveRunSafe({ userId: user.id, mode: "A", input: text, config: { providerId: provider.id, splitPct }, results });
 
   return NextResponse.json(results);
 }

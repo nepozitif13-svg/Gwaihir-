@@ -1,27 +1,20 @@
-import { PrismaClient } from "@prisma/client";
+import { createServiceClient } from "@/lib/supabase/server";
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-
-export const prisma =
-  globalForPrisma.prisma ?? new PrismaClient();
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
-
-// Persistence is for history only — never let a DB failure block a response.
 export async function saveRunSafe(args: {
+  userId: string;
   mode: "A" | "B";
   input: string;
   config: unknown;
   results: unknown;
 }): Promise<void> {
   try {
-    await prisma.run.create({
-      data: {
-        mode: args.mode,
-        input: args.input,
-        config: JSON.stringify(args.config ?? {}),
-        results: JSON.stringify(args.results ?? {}),
-      },
+    const supabase = createServiceClient();
+    await supabase.from("runs").insert({
+      user_id: args.userId,
+      mode: args.mode,
+      input: args.input,
+      config: args.config ?? {},
+      results: args.results ?? {},
     });
   } catch (err) {
     console.error("[gwaihir] saveRunSafe failed (non-fatal):", err);
