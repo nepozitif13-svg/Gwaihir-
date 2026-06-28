@@ -4,6 +4,7 @@ import { googleProvider } from "./google";
 import { perplexityProvider } from "./perplexity";
 import { groqProvider } from "./groq";
 import { openrouterProvider } from "./openrouter";
+import { cerebrasProvider } from "./cerebras";
 import { ModelProvider } from "./types";
 
 // Registration order = display order.
@@ -14,6 +15,7 @@ export const ALL_PROVIDERS: ModelProvider[] = [
   perplexityProvider,
   groqProvider,
   openrouterProvider,
+  cerebrasProvider,
 ];
 
 export function getConfiguredProviders(): ModelProvider[] {

@@ -19,3 +19,27 @@ export function pLimit(concurrency: number) {
     });
   };
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Retry with exponential backoff — handles 429 rate-limit responses from free-tier providers.
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts = 3,
+  baseDelayMs = 2000,
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes("429")) throw err; // only retry rate-limit errors
+      if (attempt < maxAttempts - 1) {
+        await sleep(baseDelayMs * 2 ** attempt); // 2s, 4s, 8s
+      }
+    }
+  }
+  throw lastErr;
+}

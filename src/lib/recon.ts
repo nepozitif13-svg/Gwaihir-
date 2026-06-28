@@ -1,5 +1,5 @@
 import { ModelProvider } from "@/lib/providers";
-import { pLimit } from "@/lib/limit";
+import { pLimit, withRetry } from "@/lib/limit";
 import {
   clusterClaims,
   tallyShareOfVoice,
@@ -89,7 +89,7 @@ export async function runRecon(
   onProgress?: (done: number, total: number) => void,
 ): Promise<Dossier> {
   const battery = PROMPT_BATTERY(target);
-  const limit = pLimit(4);
+  const limit = pLimit(2);
   const providerLabels: Record<string, string> = {};
   providers.forEach((p) => (providerLabels[p.id] = p.label));
 
@@ -105,11 +105,9 @@ export async function runRecon(
       jobs.push(
         limit(async () => {
           try {
-            const answer = await provider.complete({
-              user: question,
-              temperature: 0,
-              maxTokens: 700,
-            });
+            const answer = await withRetry(() =>
+              provider.complete({ user: question, temperature: 0, maxTokens: 700 }),
+            );
             return { provider: provider.id, questionIndex, question, answer };
           } catch (err) {
             return {
@@ -139,12 +137,9 @@ export async function runRecon(
     .map((a) =>
       limit(async () => {
         try {
-          const raw = await extractor.complete({
-            system: EXTRACT_SYSTEM,
-            user: a.answer,
-            temperature: 0,
-            maxTokens: 900,
-          });
+          const raw = await withRetry(() =>
+            extractor.complete({ system: EXTRACT_SYSTEM, user: a.answer, temperature: 0, maxTokens: 900 }),
+          );
           const parsed = safeJsonParse<
             { subject?: string; attribute?: string; value?: string }[]
           >(raw, []);
@@ -179,12 +174,9 @@ export async function runRecon(
         return { provider: provider.id, sentiment: "neutral", note: "no data" };
       }
       try {
-        const raw = await provider.complete({
-          system: SENTIMENT_SYSTEM,
-          user: `Target: ${target}\n\nAnswers:\n${text}`,
-          temperature: 0,
-          maxTokens: 120,
-        });
+        const raw = await withRetry(() =>
+          provider.complete({ system: SENTIMENT_SYSTEM, user: `Target: ${target}\n\nAnswers:\n${text}`, temperature: 0, maxTokens: 120 }),
+        );
         const parsed = safeJsonParse<{ sentiment?: string; note?: string }>(raw, {});
         const s = parsed.sentiment;
         return {
@@ -211,12 +203,9 @@ export async function runRecon(
   const sovJobs = competitorAnswers.map((a) =>
     limit(async () => {
       try {
-        const raw = await extractor.complete({
-          system: COMPETITORS_SYSTEM,
-          user: `Target: ${target}\n\nText:\n${a.answer}`,
-          temperature: 0,
-          maxTokens: 300,
-        });
+        const raw = await withRetry(() =>
+          extractor.complete({ system: COMPETITORS_SYSTEM, user: `Target: ${target}\n\nText:\n${a.answer}`, temperature: 0, maxTokens: 300 }),
+        );
         const names = safeJsonParse<string[]>(raw, []).map((n) => String(n));
         return { provider: a.provider, names };
       } catch {
