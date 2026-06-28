@@ -2,6 +2,8 @@ import { anthropicProvider } from "./anthropic";
 import { openaiProvider } from "./openai";
 import { googleProvider } from "./google";
 import { perplexityProvider } from "./perplexity";
+import { groqProvider } from "./groq";
+import { openrouterProvider } from "./openrouter";
 import { ModelProvider } from "./types";
 
 // Registration order = display order.
@@ -10,6 +12,8 @@ export const ALL_PROVIDERS: ModelProvider[] = [
   openaiProvider,
   googleProvider,
   perplexityProvider,
+  groqProvider,
+  openrouterProvider,
 ];
 
 export function getConfiguredProviders(): ModelProvider[] {
